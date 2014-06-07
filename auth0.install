@@ -1,0 +1,66 @@
+<?php
+/**
+ * Implements hook_schema().
+ */
+function auth0_schema() {
+  $schema['auth0_user'] = array(
+    'description' => 'Joins auth0 users with drupal users.',
+    'fields' => array(
+        'auth0_id' => array(
+            'description' => 'The user id on auth0',
+            'type' => 'varchar',
+            'length' => 100,
+            'not null' => TRUE,
+        ),
+        'drupal_id' => array(
+            'description' => 'The user id on drupal',
+            'type' => 'int',
+            'not null' => TRUE,
+        ),
+        'auth0_object' => array(
+            'description' => 'A serialized version of the auth0 user',
+            'type' => 'text',
+            'not null' => TRUE,
+        ),
+
+    ),
+    'indexes' => array(
+      'drupal_id' => array('drupal_id'),
+    ),
+    'primary key' => array('auth0_id'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function auth0_install() {
+    drupal_install_schema('auth0_user_services');
+    $css = <<<EOT
+#a0-widget .a0-panel {
+    min-width: 90%;
+    padding: 5%;
+    box-shadow: none;
+    -webkit-box-shadow: none;
+}
+#a0-widget .a0-panel {
+    background-color: #f6f6f2;
+    border-color: #f9f9f9;
+}
+EOT;
+
+    variable_set('auth0_login_css', $css);
+    variable_set('auth0_widget_cdn','http://cdn.auth0.com/w2/auth0-widget-4.0.min.js');
+    variable_set('auth0_form_title', 'Sign In');
+    variable_set('auth0_requires_verified_email', true);
+    variable_set('auth0_allow_signup', true);
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function auth0_uninstall() {
+  drupal_uninstall_schema('auth0_user_services');
+}

@@ -1,0 +1,14 @@
+{
+    "name": "auth0/drupal",
+    "require": {
+        "auth0/auth0-php": "0.6.*",
+        "adoy/oauth2": "dev-master",
+        "firebase/php-jwt" : "dev-master"
+    },
+    "authors": [
+        {
+            "name": "Hernan Rajchert",
+            "email": "hrajchert@gmail.com"
+        }
+    ]
+}

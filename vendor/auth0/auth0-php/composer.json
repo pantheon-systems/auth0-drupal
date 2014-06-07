@@ -1,0 +1,22 @@
+{
+    "name": "auth0/auth0-php",
+    "description": "Auth0 PHP SDK.",
+    "type": "library",
+    "authors": [
+        {
+            "name":"Auth0",
+            "email":"support@auth0.com",
+            "homepage":"http://www.auth0.com/"
+        }
+    ],
+    "require": {
+        "php": ">=5.3.0",
+        "ext-curl": "*",
+        "ext-json": "*",
+        "adoy/oauth2": "dev-master"
+    },
+    "autoload": {
+        "classmap": ["src"]
+    },
+    "license": "MIT"
+}
