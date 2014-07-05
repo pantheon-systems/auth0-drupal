@@ -13,7 +13,7 @@ Demo: <http://auth0-drupal.azurewebsites.net>
 
 If you have multiple Drupal instances and you want users to have a single User/Password among them, you can use Auth0 as the central user store for all.
 
-![](https://docs.google.com/drawings/d/1O-TMkAaEL1ibLs2gqHVjcLVGRnAERB5wlWGaNPLDgiQ/pub?w=865&amp;h=841")
+![](https://docs.google.com/drawings/d/1O-TMkAaEL1ibLs2gqHVjcLVGRnAERB5wlWGaNPLDgiQ/pub?w=865&amp;h=841)
 
 ### Integrating with Enterprise
 
