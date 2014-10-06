@@ -5,7 +5,7 @@ Single Sign On for Enterprises + Social Login + User/Passwords. For all your Dru
 
 Demo: <http://auth0-drupal.azurewebsites.net>
 
-[Drupal Readme](https://github.com/auth0/wp-auth0/blob/master/readme.txt)
+[Drupal Readme](https://github.com/auth0/auth0-drupal/blob/master/README.txt)
 
 ## Scenarios
 
