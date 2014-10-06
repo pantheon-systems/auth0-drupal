@@ -15,6 +15,21 @@ Before you start, **make sure the admin user has a valid email that you own**, r
 
 3. Configure it using your auth0 account.
 
+INSTALLATION FROM GITHUB
+------------------------
+1. Clone the repo to your modules directory:
+    $ git clone https://github.com/auth0/auth0-drupal.git $DRUPAL_ROOT/sites/all/modules/auth0-drupal
+
+2. Install composer dependencies:
+    $ cd auth0-drupal
+    $ curl -sS https://getcomposer.org/installer | php
+    $ php composer.phar install
+
+3. Enable it on the module page
+
+4. Configure it using your auth0 account.
+
+
 
 AUTH0 CONFIGURATION
 -------------------
