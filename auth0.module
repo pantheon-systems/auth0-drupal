@@ -96,19 +96,12 @@ function auth0_verify_email_page() {
 function auth0_callback() {
     global $base_root;
 
-    $sessionState = isset($_SESSION['auth0_state'])?$_SESSION['auth0_state']:false;
-    
-    if ($sessionState  == false || $_GET['state'] != $sessionState) {
-        drupal_set_message(t('The state code doesn\'t match! We can\'t log you in. Are you sure you are coming from the page?'),'error');
-        return drupal_goto();
-    }
-
     $auth0 = new Auth0(array(
         'domain'        => variable_get('auth0_domain'),
         'client_id'     => variable_get('auth0_client_id'),
         'client_secret' => variable_get('auth0_client_secret'),
         'redirect_uri'  => "$base_root/auth0/callback",
-        'store'         => false,
+        'store'         => false
     ));
 
 
@@ -120,6 +113,8 @@ function auth0_callback() {
     } catch(Exception $e) {
 
     }
+
+    // var_dump($auth0); die;
 
     if ($userInfo) {
         auth0_login_auth0_user($userInfo, $idToken);
