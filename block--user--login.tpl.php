@@ -5,19 +5,21 @@ if (!$state) {
     $state = $_SESSION['auth0_state'] = uniqid();
 }
 
+$params = array(
+    'domain' => filter_var(variable_get("auth0_domain"), FILTER_SANITIZE_STRING),
+    'chrome' => true,
+    'clientID' => filter_var(variable_get("auth0_client_id"), FILTER_SANITIZE_STRING),
+    'callbackURL' => filter_var("$base_root/auth0/callback", FILTER_VALIDATE_URL),
+    'state' => filter_var(variable_get('$state'), FILTER_SANITIZE_STRING),
+    'showSignup' => filter_var(variable_get("auth0_allow_signup"), FILTER_VALIDATE_BOOLEAN)
+);
+
 ?>
+
 <script id="auth0" src="<?php echo variable_get('auth0_widget_cdn');?>"></script>
 <script type="text/javascript">
 
-    var widget = new Auth0Widget({
-        domain:         '<?php echo variable_get("auth0_domain")?>',
-        chrome:         true,
-        clientID:       '<?php echo variable_get("auth0_client_id")?>',
-        callbackURL:    '<?php echo "$base_root/auth0/callback"?>',
-        state:          '<?php echo $state ?>',
-        showSignup:     <?php echo variable_get('auth0_allow_signup')?'true':'false'?>,
-        dict:           { signin: { title: '<?php echo variable_get("auth0_form_title","Sign In")?>' } }
-    });
+    var widget = new Auth0Widget(<?php echo json_encode(array_filter($params)); ?>);
 
     widget.signin({
         container:      'auth0-login-form',

@@ -55,7 +55,7 @@ login widget
 Changing this url you can use the latest version of the widget without updating this plugin
 
 * Requires verified email:
-Some of the authentication providers have email, other doesnt (example twitter). When they do, that email can be verified or not. Meaning, we know that the user really owns that email account.
+Some of the authentication providers have email, other doesn't (example twitter). When they do, that email can be verified or not. Meaning, we know that the user really owns that email account.
 If you check this box, users will be required to have a verified email in order to login.
 
 * Login widget css:
