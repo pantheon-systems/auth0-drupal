@@ -20,11 +20,7 @@ $params = array(
 
 ?>
 
-<<<<<<< HEAD
-<script id="auth0" src="<?php echo variable_get('auth0_widget_cdn');?>"></script>
-=======
 <script id="auth0" src="<?php echo filter_var(variable_get('auth0_widget_cdn'), FILTER_VALIDATE_URL);?>"></script>
->>>>>>> 3c124b72fe9fb93e89f164cc08046a47f11ceaaa
 <script type="text/javascript">
 
     var widget = new Auth0Widget(<?php echo json_encode(array_filter($params)); ?>);
