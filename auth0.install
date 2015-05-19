@@ -52,7 +52,7 @@ function auth0_install() {
 EOT;
 
     variable_set('auth0_login_css', $css);
-    variable_set('auth0_widget_cdn','http://cdn.auth0.com/w2/auth0-widget-4.0.min.js');
+    variable_set('auth0_widget_cdn','http://cdn.auth0.com/js/lock-7.min.js');
     variable_set('auth0_form_title', 'Sign In');
     variable_set('auth0_requires_verified_email', true);
     variable_set('auth0_allow_signup', true);
