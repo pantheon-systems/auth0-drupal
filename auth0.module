@@ -367,6 +367,13 @@ function auth0_advanced_form($form, &$form_state) {
         '#description' => t('Mark this if you require the user to have a verified email to login.')
     );
 
+    $form['auth0_sso'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('SSO enabled'),
+        '#default_value' => variable_get('auth0_sso'),
+        '#description' => t('Mark this if you want to enable Auth0 SSO for this site.')
+    );
+
     $form['auth0_login_css'] = array(
         '#type' => 'textarea',
         '#title' => t('Login widget css'),
@@ -375,4 +382,17 @@ function auth0_advanced_form($form, &$form_state) {
     );
 
     return system_settings_form($form);
+}
+
+function auth0_user_logout($account) {
+    $sso_enabled = filter_var(variable_get("auth0_sso"), FILTER_VALIDATE_BOOLEAN);
+
+    if ($sso_enabled) {
+        global $base_url;
+        session_destroy();
+
+        $domain = filter_var(variable_get("auth0_domain"), FILTER_SANITIZE_STRING);
+
+        drupal_goto("https://$domain/v2/logout?returnTo=" . urlencode($base_url));
+    }
 }
