@@ -56,6 +56,7 @@ EOT;
     variable_set('auth0_form_title', 'Sign In');
     variable_set('auth0_requires_verified_email', true);
     variable_set('auth0_allow_signup', true);
+    variable_set('auth0_sso', false);
 }
 
 /**

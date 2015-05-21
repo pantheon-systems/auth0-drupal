@@ -125,6 +125,7 @@ function auth0_callback() {
     return drupal_goto();
 }
 function auth0_fail_with_verify_email($idToken) {
+    $_SESSION['ignoreSSO'] = true;
     drupal_set_message(t("Please verify your email and log in again. Click <a href=@url>here</a> to Resend verification email.", array('@url' => url('auth0/verify_email', array('query' => array('token' => $idToken))))), 'warning');
     
     return drupal_goto();

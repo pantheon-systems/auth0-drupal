@@ -33,7 +33,15 @@ $params = array(
 
     var a0options = <?php echo json_encode($params); ?>;
 
-<?php if ($sso_enabled) { ?>
+<?php 
+
+$ignoreSSO = false;
+if (isset($_SESSION) && isset($_SESSION['ignoreSSO'])) {
+    $ignoreSSO = $_SESSION['ignoreSSO'];
+    unset($_SESSION['ignoreSSO']);
+}
+
+if (!$ignoreSSO && $sso_enabled) { ?>
     a0lock.$auth0.getSSOData(function(err, data) {
 		if (!err && data.sso) {
 			// there is! redirect to Auth0 for SSO
