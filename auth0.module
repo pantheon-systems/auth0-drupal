@@ -290,7 +290,8 @@ function auth0_menu_alter(&$items) {
 function auth0_theme() {
   return array(
     'auth0_login' => array(
-      'template' => 'block--user--login',
+      'variables' => array(),
+      'template' => 'auth0-login',
     ),
   );
 }
@@ -414,3 +415,34 @@ function auth0_form_alter(&$form, $form_state, $form_id) {
   }
 }
 
+/**
+ * Preprocess the login widget.
+ */
+function template_preprocess_auth0_login(&$vars) {
+  global $base_root; 
+
+  $vars['sso_enabled'] = filter_var(variable_get("auth0_sso"), FILTER_VALIDATE_BOOLEAN);
+  $vars['domain'] = filter_var(variable_get("auth0_domain"), FILTER_SANITIZE_STRING);
+  $vars['client_id'] = filter_var(variable_get("auth0_client_id"), FILTER_SANITIZE_STRING);
+
+  $vars['params'] = array(
+    'callbackURL' => url('auth0/callback', array('absolute' => TRUE)),
+    'authParams' => array(
+      'state' => filter_var(variable_get('$state'), FILTER_SANITIZE_STRING),
+    ),
+    'disableSignupAction' => !filter_var(variable_get("auth0_allow_signup"), FILTER_VALIDATE_BOOLEAN),
+    'container' => 'auth0-login-form',
+    'sso' => $vars['sso_enabled'],
+    'rememberLastLogin' => $vars['sso_enabled']
+  );
+
+  $vars['params_json'] = json_encode($vars['params']);
+
+  // Add the custom css if specified.
+  if ($css = variable_get("auth0_login_css")) {
+    drupal_add_css($css, array('type' => 'inline'));
+  }
+
+  // Add the lock.js library from the specified CDN.
+  drupal_add_js(filter_var(variable_get('auth0_widget_cdn'), FILTER_VALIDATE_URL), array('type' => 'external'));
+}
