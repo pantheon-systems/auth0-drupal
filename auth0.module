@@ -428,7 +428,7 @@ function template_preprocess_auth0_login(&$vars) {
   $vars['params'] = array(
     'callbackURL' => url('auth0/callback', array('absolute' => TRUE)),
     'authParams' => array(
-      'state' => filter_var(variable_get('$state'), FILTER_SANITIZE_STRING),
+      'state' => drupal_get_token('auth0_state'),
     ),
     'disableSignupAction' => !filter_var(variable_get("auth0_allow_signup"), FILTER_VALIDATE_BOOLEAN),
     'container' => 'auth0-login-form',
