@@ -436,13 +436,22 @@ function template_preprocess_auth0_login(&$vars) {
     'rememberLastLogin' => $vars['sso_enabled']
   );
 
-  $vars['params_json'] = json_encode($vars['params']);
-
   // Add the custom css if specified.
   if ($css = variable_get("auth0_login_css")) {
     drupal_add_css($css, array('type' => 'inline'));
   }
 
   // Add the lock.js library from the specified CDN.
-  drupal_add_js(filter_var(variable_get('auth0_widget_cdn'), FILTER_VALIDATE_URL), array('type' => 'external'));
+  drupal_add_js(filter_var(variable_get('auth0_widget_cdn'), FILTER_VALIDATE_URL), 'external');
+
+  // Add the auth0 js settings.
+  drupal_add_js(array(
+    'auth0' => array(
+      'client_id' => $vars['client_id'],
+      'domain' => $vars['domain'],
+      'options' => $vars['params']
+      )), 'setting');
+
+  // Add the Drupal behavior to initialize the widget.
+  drupal_add_js(drupal_get_path('module', 'auth0') . '/auth0.lock.js');
 }
