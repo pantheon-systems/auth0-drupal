@@ -436,6 +436,15 @@ function template_preprocess_auth0_login(&$vars) {
     'rememberLastLogin' => $vars['sso_enabled']
   );
 
+  // Generate a link to a login form to be displayed as a no-js fallback.
+  $query = array(
+    'redirect_uri' => $vars['params']['callbackURL'], 
+    'client_id' => $vars['client_id'], 
+    'response_type' => 'code', 
+    'state' => $vars['params']['authParams']['state']
+    );
+  $vars['login_link'] = l(t('Log in'), 'https://' . $vars['domain'] . '/authorize', array('query' => $query)); 
+
   // Add the custom css if specified.
   if ($css = variable_get("auth0_login_css")) {
     drupal_add_css($css, array('type' => 'inline'));
