@@ -5,17 +5,6 @@ require_once (DRUPAL_ROOT . '/' . AUTH0_PATH . '/vendor/autoload.php');
 
 use Auth0SDK\Auth0;
 
-/**
- * Implements hook_theme_registry_alter(&$theme_registry).
- * 
- * Override the login template with the one from block--user--login.tpl.php
- */
-function auth0_theme_registry_alter(&$theme_registry) {
-  global $theme_key;
-  $theme_registry_copy = $theme_registry;
-  _theme_process_registry($theme_registry_copy, 'phptemplate', 'theme_engine', $theme_key, AUTH0_PATH);
-  $theme_registry += array_diff_key($theme_registry_copy, $theme_registry);
-}
 
 /**
  * Implements hook_menu().
@@ -288,30 +277,9 @@ function auth0_create_user_from_auth0($userInfo) {
  * Override the content of /user, which is the page for login and user management.
  */
 function auth0_menu_alter(&$items) {
-  // Change /user page callback to our own.
-  $items['user']['page callback'] = 'auth0_user_page';
-
   // No need for register or retrieve password.
   unset($items['user/register']);
   unset($items['user/password']);
-}
-
-/**
- * The replacement page callback for /user/login.
- * 
- * This is copied from user.pages.inc user_page function. If the user is logged 
- * in, it goes to the normal user management, if not, it renders the auth0 login 
- * template
- */
-function auth0_user_page() {
-  global $user;
-  if ($user->uid) {
-    menu_set_active_item('user/' . $user->uid);
-    return menu_execute_active_handler(NULL, FALSE);
-  }
-  else {
-    return theme('auth0_login');
-  }
 }
 
 /**
@@ -422,6 +390,27 @@ function auth0_user_logout($account) {
     $domain = filter_var(variable_get("auth0_domain"), FILTER_SANITIZE_STRING);
 
     drupal_goto("https://$domain/v2/logout?returnTo=" . urlencode($base_url));
+  }
+}
+
+/**
+ * Implements hook_form_alter().
+ * 
+ * Replace the user login forms with the Auth0 login widget.
+ */
+function auth0_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'user_login_block' || $form_id == 'user_login') {
+
+    // Remove the old form elements.
+    foreach (element_children($form) as $child) {
+      unset($form[$child]);
+    }
+
+    // Add an Auth0 widget.
+    $form['auth0'] = array(
+      '#type' => 'markup',
+      '#markup' => theme('auth0_login')
+    );
   }
 }
 
