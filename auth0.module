@@ -287,7 +287,7 @@ function auth0_create_user_from_auth0($userInfo) {
 
   // Notify the user if they must have approval.
   if (!$user->status) {
-    drupal_set_message(t('Thank you for applying for an account. Your account is currently pending approval by the site administrator.<br />In the meantime, a welcome message with further instructions has been sent to your e-mail address.'));
+    drupal_set_message(t('Thank you for applying for an account. Your account is currently pending approval by the site administrator.'));
   }
 
   return $new_user->uid;
