@@ -204,7 +204,13 @@ function auth0_login_auth0_user($userInfo, $idToken) {
     }
     else {
       // If we are here, we need to create the user.
-      $uid = auth0_create_user_from_auth0($userInfo);
+      // Check drupal settings to see if new users are allowed to register.
+      if (variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL) == USER_REGISTER_ADMINISTRATORS_ONLY) {
+        return drupal_set_message(t('Only site administrators can create new user accounts.'), 'error');
+      }
+      else {
+        $uid = auth0_create_user_from_auth0($userInfo);
+      }
     }
 
     auth0_insert_auth0_user($userInfo, $uid);
@@ -275,9 +281,14 @@ function auth0_create_user_from_auth0($userInfo) {
   }
   $user->name = $username;
   $user->is_new = TRUE;
-  $user->status = 1;
+  $user->status = variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL) == USER_REGISTER_VISITORS;
   $user->pass = user_password();
   $new_user = user_save($user);
+
+  // Notify the user if they must have approval.
+  if (!$user->status) {
+    drupal_set_message(t('Thank you for applying for an account. Your account is currently pending approval by the site administrator.'));
+  }
 
   return $new_user->uid;
 }
