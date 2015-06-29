@@ -427,7 +427,7 @@ function template_preprocess_auth0_lock(&$vars) {
   $vars['client_id'] = filter_var(variable_get("auth0_client_id"), FILTER_SANITIZE_STRING);
 
   $vars['params'] = array(
-    'callbackURL' => url('auth0/callback', array('absolute' => TRUE)),
+    'callbackURL' => url('auth0/callback', array('absolute' => TRUE, 'query' => drupal_get_destination())),
     'authParams' => array(
       'state' => drupal_get_token('auth0_state'),
     ),
