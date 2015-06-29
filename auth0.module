@@ -5,17 +5,6 @@ require_once (DRUPAL_ROOT . '/' . AUTH0_PATH . '/vendor/autoload.php');
 
 use Auth0SDK\Auth0;
 
-/**
- * Implements hook_theme_registry_alter(&$theme_registry).
- * 
- * Override the login template with the one from block--user--login.tpl.php
- */
-function auth0_theme_registry_alter(&$theme_registry) {
-  global $theme_key;
-  $theme_registry_copy = $theme_registry;
-  _theme_process_registry($theme_registry_copy, 'phptemplate', 'theme_engine', $theme_key, AUTH0_PATH);
-  $theme_registry += array_diff_key($theme_registry_copy, $theme_registry);
-}
 
 /**
  * Implements hook_menu().
@@ -294,46 +283,15 @@ function auth0_create_user_from_auth0($userInfo) {
 }
 
 /**
- * Implements hook_menu_alter().
- * 
- * Override the content of /user, which is the page for login and user management.
- */
-function auth0_menu_alter(&$items) {
-  // Change /user page callback to our own.
-  $items['user']['page callback'] = 'auth0_user_page';
-
-  // No need for register or retrieve password.
-  unset($items['user/register']);
-  unset($items['user/password']);
-}
-
-/**
- * The replacement page callback for /user/login.
- * 
- * This is copied from user.pages.inc user_page function. If the user is logged 
- * in, it goes to the normal user management, if not, it renders the auth0 login 
- * template
- */
-function auth0_user_page() {
-  global $user;
-  if ($user->uid) {
-    menu_set_active_item('user/' . $user->uid);
-    return menu_execute_active_handler(NULL, FALSE);
-  }
-  else {
-    return theme('auth0_login');
-  }
-}
-
-/**
  * Implements hook_theme().
  * 
  * Define the template to use for the /user action.
  */
 function auth0_theme() {
   return array(
-    'auth0_login' => array(
-      'template' => 'block--user--login',
+    'auth0_lock' => array(
+      'variables' => array('mode' => 'signin'),
+      'template' => 'auth0-lock',
     ),
   );
 }
@@ -436,3 +394,86 @@ function auth0_user_logout($account) {
   }
 }
 
+/**
+ * Implements hook_form_alter().
+ * 
+ * Replace the user login forms with the Auth0 login widget.
+ */
+function auth0_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'user_login_block' || $form_id == 'user_login') {
+    _auth0_form_replace_with_lock($form, 'signin');
+  }
+  else if ($form_id == 'user_register_form') {
+    _auth0_form_replace_with_lock($form, 'signup');
+  }
+  else if ($form_id == 'user_pass') {
+    _auth0_form_replace_with_lock($form, 'reset');
+  }
+}
+
+/**
+ * Replace a form with the lock widget.
+ */
+function _auth0_form_replace_with_lock(&$form, $mode = 'signin') {
+  // Remove the old form elements.
+  foreach (element_children($form) as $child) {
+    unset($form[$child]);
+  }
+
+  // Add an Auth0 Lock widget.
+  $form['auth0'] = array(
+    '#type' => 'markup',
+    '#markup' => theme('auth0_lock', array('mode' => $mode))
+  );
+}
+
+/**
+ * Preprocess the login widget.
+ */
+function template_preprocess_auth0_lock(&$vars) {
+  global $base_root; 
+
+  $vars['sso_enabled'] = filter_var(variable_get("auth0_sso"), FILTER_VALIDATE_BOOLEAN);
+  $vars['domain'] = filter_var(variable_get("auth0_domain"), FILTER_SANITIZE_STRING);
+  $vars['client_id'] = filter_var(variable_get("auth0_client_id"), FILTER_SANITIZE_STRING);
+
+  $vars['params'] = array(
+    'callbackURL' => url('auth0/callback', array('absolute' => TRUE, 'query' => drupal_get_destination())),
+    'authParams' => array(
+      'state' => drupal_get_token('auth0_state'),
+    ),
+    'disableSignupAction' => !filter_var(variable_get("auth0_allow_signup"), FILTER_VALIDATE_BOOLEAN),
+    'container' => 'auth0-login-form',
+    'sso' => $vars['sso_enabled'],
+    'rememberLastLogin' => $vars['sso_enabled'],
+    'mode' => $vars['mode'],
+  );
+
+  // Generate a link to a login form to be displayed as a no-js fallback.
+  $query = array(
+    'redirect_uri' => $vars['params']['callbackURL'], 
+    'client_id' => $vars['client_id'], 
+    'response_type' => 'code', 
+    'state' => $vars['params']['authParams']['state']
+    );
+  $vars['login_link'] = l(t('Log in'), 'https://' . $vars['domain'] . '/authorize', array('query' => $query)); 
+
+  // Add the custom css if specified.
+  if ($css = variable_get("auth0_login_css")) {
+    drupal_add_css($css, array('type' => 'inline'));
+  }
+
+  // Add the lock.js library from the specified CDN.
+  drupal_add_js(filter_var(variable_get('auth0_widget_cdn'), FILTER_VALIDATE_URL), 'external');
+
+  // Add the auth0 js settings.
+  drupal_add_js(array(
+    'auth0' => array(
+      'client_id' => $vars['client_id'],
+      'domain' => $vars['domain'],
+      'options' => $vars['params']
+      )), 'setting');
+
+  // Add the Drupal behavior to initialize the widget.
+  drupal_add_js(drupal_get_path('module', 'auth0') . '/auth0.lock.js');
+}
