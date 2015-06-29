@@ -272,26 +272,15 @@ function auth0_create_user_from_auth0($userInfo) {
 }
 
 /**
- * Implements hook_menu_alter().
- * 
- * Override the content of /user, which is the page for login and user management.
- */
-function auth0_menu_alter(&$items) {
-  // No need for register or retrieve password.
-  unset($items['user/register']);
-  unset($items['user/password']);
-}
-
-/**
  * Implements hook_theme().
  * 
  * Define the template to use for the /user action.
  */
 function auth0_theme() {
   return array(
-    'auth0_login' => array(
-      'variables' => array(),
-      'template' => 'auth0-login',
+    'auth0_lock' => array(
+      'variables' => array('mode' => 'signin'),
+      'template' => 'auth0-lock',
     ),
   );
 }
@@ -401,24 +390,36 @@ function auth0_user_logout($account) {
  */
 function auth0_form_alter(&$form, $form_state, $form_id) {
   if ($form_id == 'user_login_block' || $form_id == 'user_login') {
-
-    // Remove the old form elements.
-    foreach (element_children($form) as $child) {
-      unset($form[$child]);
-    }
-
-    // Add an Auth0 widget.
-    $form['auth0'] = array(
-      '#type' => 'markup',
-      '#markup' => theme('auth0_login')
-    );
+    _auth0_form_replace_with_lock($form, 'signin');
   }
+  else if ($form_id == 'user_register_form') {
+    _auth0_form_replace_with_lock($form, 'signup');
+  }
+  else if ($form_id == 'user_pass') {
+    _auth0_form_replace_with_lock($form, 'reset');
+  }
+}
+
+/**
+ * Replace a form with the lock widget.
+ */
+function _auth0_form_replace_with_lock(&$form, $mode = 'signin') {
+  // Remove the old form elements.
+  foreach (element_children($form) as $child) {
+    unset($form[$child]);
+  }
+
+  // Add an Auth0 Lock widget.
+  $form['auth0'] = array(
+    '#type' => 'markup',
+    '#markup' => theme('auth0_lock', array('mode' => $mode))
+  );
 }
 
 /**
  * Preprocess the login widget.
  */
-function template_preprocess_auth0_login(&$vars) {
+function template_preprocess_auth0_lock(&$vars) {
   global $base_root; 
 
   $vars['sso_enabled'] = filter_var(variable_get("auth0_sso"), FILTER_VALIDATE_BOOLEAN);
@@ -433,7 +434,8 @@ function template_preprocess_auth0_login(&$vars) {
     'disableSignupAction' => !filter_var(variable_get("auth0_allow_signup"), FILTER_VALIDATE_BOOLEAN),
     'container' => 'auth0-login-form',
     'sso' => $vars['sso_enabled'],
-    'rememberLastLogin' => $vars['sso_enabled']
+    'rememberLastLogin' => $vars['sso_enabled'],
+    'mode' => $vars['mode'],
   );
 
   // Generate a link to a login form to be displayed as a no-js fallback.
