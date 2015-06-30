@@ -1,6 +1,22 @@
 <?php
+
 // Create a variable to store the path to this module
 define('AUTH0_PATH', drupal_get_path('module', 'auth0')); 
+
+// Define some module default settings
+define('AUTH0_WIDGET_CDN', 'http://cdn.auth0.com/js/lock-7.min.js');
+define('AUTH_LOGIN_CSS', "#a0-widget .a0-panel {
+    min-width: 90%;
+    padding: 5%;
+    box-shadow: none;
+    -webkit-box-shadow: none;
+}
+#a0-widget .a0-panel {
+    background-color: #f6f6f2;
+    border-color: #f9f9f9;
+}");
+
+
 require_once (DRUPAL_ROOT . '/' . AUTH0_PATH . '/vendor/autoload.php');
 
 use Auth0SDK\Auth0;
@@ -65,12 +81,12 @@ function auth0_menu() {
  */
 function auth0_verify_email_page() {
   $token = $_REQUEST['token'];
-  $secret = variable_get('auth0_client_secret');
+  $secret = variable_get('auth0_client_secret', '');
 
   try {
     $user = \JWT::decode($token, base64_decode(strtr($secret, '-_', '+/')));
     $userId = $user->sub;
-    $domain = variable_get('auth0_domain');
+    $domain = variable_get('auth0_domain', '');
     $url = "https://$domain/api/users/$userId/send_verification_email";
     $headers = array('Authorization' => "Bearer $token");
     $result = drupal_http_request($url, array('headers' => $headers, 'method' => 'POST'));
@@ -98,9 +114,9 @@ function auth0_callback() {
   global $base_root;
 
   $auth0 = new Auth0(array(
-      'domain' => variable_get('auth0_domain'),
-      'client_id' => variable_get('auth0_client_id'),
-      'client_secret' => variable_get('auth0_client_secret'),
+      'domain' => variable_get('auth0_domain', ''),
+      'client_id' => variable_get('auth0_client_id', ''),
+      'client_secret' => variable_get('auth0_client_secret', ''),
       'redirect_uri' => "$base_root/auth0/callback",
       'store' => FALSE,
     ));
@@ -139,7 +155,7 @@ function auth0_fail_with_verify_email($idToken) {
  * Log in an Auth0 authenticated user.
  */
 function auth0_login_auth0_user($userInfo, $idToken) {
-  $requires_email = variable_get('auth0_requires_verified_email');
+  $requires_email = variable_get('auth0_requires_verified_email', TRUE);
 
   if ($requires_email) {
     if (!isset($userInfo['email']) || empty($userInfo['email'])) {
@@ -341,35 +357,35 @@ function auth0_advanced_form($form, &$form_state) {
   $form['auth0_allow_signup'] = array(
     '#type' => 'checkbox',
     '#title' => t('Allow user signup'),
-    '#default_value' => variable_get('auth0_allow_signup'),
+    '#default_value' => variable_get('auth0_allow_signup', TRUE),
     '#description' => t('If you have database connection you can allow users to signup in the widget.'),
   );
 
   $form['auth0_widget_cdn'] = array(
     '#type' => 'textfield',
     '#title' => t('Widget CDN'),
-    '#default_value' => variable_get('auth0_widget_cdn'),
+    '#default_value' => variable_get('auth0_widget_cdn', AUTH0_WIDGET_CDN),
     '#description' => t('Point this to the latest widget available in the CDN.'),
   );
 
   $form['auth0_requires_verified_email'] = array(
     '#type' => 'checkbox',
     '#title' => t('Requires verified email'),
-    '#default_value' => variable_get('auth0_requires_verified_email'),
+    '#default_value' => variable_get('auth0_requires_verified_email', TRUE),
     '#description' => t('Mark this if you require the user to have a verified email to login.'),
   );
 
   $form['auth0_sso'] = array(
     '#type' => 'checkbox',
     '#title' => t('SSO enabled'),
-    '#default_value' => variable_get('auth0_sso'),
+    '#default_value' => variable_get('auth0_sso', FALSE),
     '#description' => t('Mark this if you want to enable Auth0 SSO for this site.'),
   );
 
   $form['auth0_login_css'] = array(
     '#type' => 'textarea',
     '#title' => t('Login widget css'),
-    '#default_value' => variable_get('auth0_login_css'),
+    '#default_value' => variable_get('auth0_login_css', AUTH_LOGIN_CSS),
     '#description' => t('This css controls how the widget look and feel.'),
   );
 
@@ -382,13 +398,12 @@ function auth0_advanced_form($form, &$form_state) {
  * Logs the user out of Auth0 if SSO is in use.
  */
 function auth0_user_logout($account) {
-  $sso_enabled = filter_var(variable_get("auth0_sso"), FILTER_VALIDATE_BOOLEAN);
-
-  if ($sso_enabled) {
+  // If Single Sign On is enabled then log the user out from Auth0.
+  if (variable_get("auth0_sso", FALSE)) {
     global $base_url;
     session_destroy();
 
-    $domain = filter_var(variable_get("auth0_domain"), FILTER_SANITIZE_STRING);
+    $domain = filter_var(variable_get("auth0_domain", ''), FILTER_SANITIZE_STRING);
 
     drupal_goto("https://$domain/v2/logout?returnTo=" . urlencode($base_url));
   }
@@ -433,16 +448,16 @@ function _auth0_form_replace_with_lock(&$form, $mode = 'signin') {
 function template_preprocess_auth0_lock(&$vars) {
   global $base_root; 
 
-  $vars['sso_enabled'] = filter_var(variable_get("auth0_sso"), FILTER_VALIDATE_BOOLEAN);
-  $vars['domain'] = filter_var(variable_get("auth0_domain"), FILTER_SANITIZE_STRING);
-  $vars['client_id'] = filter_var(variable_get("auth0_client_id"), FILTER_SANITIZE_STRING);
+  $vars['sso_enabled'] = (boolean)variable_get("auth0_sso", FALSE);
+  $vars['domain'] = filter_var(variable_get("auth0_domain", ''), FILTER_SANITIZE_STRING);
+  $vars['client_id'] = filter_var(variable_get("auth0_client_id", ''), FILTER_SANITIZE_STRING);
 
   $vars['params'] = array(
     'callbackURL' => url('auth0/callback', array('absolute' => TRUE, 'query' => drupal_get_destination())),
     'authParams' => array(
       'state' => drupal_get_token('auth0_state'),
     ),
-    'disableSignupAction' => !filter_var(variable_get("auth0_allow_signup"), FILTER_VALIDATE_BOOLEAN),
+    'disableSignupAction' => !variable_get("auth0_allow_signup", TRUE),
     'container' => 'auth0-login-form',
     'sso' => $vars['sso_enabled'],
     'rememberLastLogin' => $vars['sso_enabled'],
@@ -459,12 +474,12 @@ function template_preprocess_auth0_lock(&$vars) {
   $vars['login_link'] = l(t('Log in'), 'https://' . $vars['domain'] . '/authorize', array('query' => $query)); 
 
   // Add the custom css if specified.
-  if ($css = variable_get("auth0_login_css")) {
+  if ($css = variable_get("auth0_login_css", AUTH_LOGIN_CSS)) {
     drupal_add_css($css, array('type' => 'inline'));
   }
 
   // Add the lock.js library from the specified CDN.
-  drupal_add_js(filter_var(variable_get('auth0_widget_cdn'), FILTER_VALIDATE_URL), 'external');
+  drupal_add_js(filter_var(variable_get('auth0_widget_cdn', AUTH0_WIDGET_CDN), FILTER_VALIDATE_URL), 'external');
 
   // Add the auth0 js settings.
   drupal_add_js(array(

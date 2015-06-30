@@ -38,24 +38,6 @@ function auth0_schema() {
  */
 function auth0_install() {
   drupal_install_schema('auth0_user_services');
-  $css = <<<EOT
-#a0-widget .a0-panel {
-    min-width: 90%;
-    padding: 5%;
-    box-shadow: none;
-    -webkit-box-shadow: none;
-}
-#a0-widget .a0-panel {
-    background-color: #f6f6f2;
-    border-color: #f9f9f9;
-}
-EOT;
-
-  variable_set('auth0_login_css', $css);
-  variable_set('auth0_widget_cdn', 'http://cdn.auth0.com/js/lock-7.min.js');
-  variable_set('auth0_form_title', 'Sign In');
-  variable_set('auth0_requires_verified_email', TRUE);
-  variable_set('auth0_allow_signup', TRUE);
 }
 
 /**
@@ -63,5 +45,12 @@ EOT;
  */
 function auth0_uninstall() {
   drupal_uninstall_schema('auth0_user_services');
+
+  variable_del('auth0_login_css');
+  variable_del('auth0_widget_cdn');
+  variable_del('auth0_form_title');
+  variable_del('auth0_requires_verified_email');
+  variable_del('auth0_allow_signup');
+
 }
 
