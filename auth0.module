@@ -44,8 +44,8 @@ function auth0_menu() {
 
 
   // Add an admin configuration page.
-  $items['admin/config/people/auth0'] = array(
-    'title' => 'Auth0 Login Settings',
+  $items['admin/user/auth0'] = array(
+    'title' => 'Auth0 login settings',
     'description' => 'Configure your auth0 account and widget.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('auth0_login_form'),
@@ -53,7 +53,7 @@ function auth0_menu() {
   );
 
   // Basic configuration tab.
-  $items['admin/config/people/auth0/basic'] = array(
+  $items['admin/user/auth0/basic'] = array(
     'title' => 'Basic',
     'description' => 'Configure your auth0 account and widget.',
     'page callback' => 'drupal_get_form',
@@ -63,7 +63,7 @@ function auth0_menu() {
   );
 
   // Advanced configuration tab.
-  $items['admin/config/people/auth0/advanced'] = array(
+  $items['admin/user/auth0/advanced'] = array(
     'title' => 'Advanced',
     'description' => 'Configure your auth0 account and widget.',
     'page callback' => 'drupal_get_form',
