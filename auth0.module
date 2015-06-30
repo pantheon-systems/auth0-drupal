@@ -403,7 +403,7 @@ function auth0_user_logout($account) {
     global $base_url;
     session_destroy();
 
-    $domain = filter_var(variable_get("auth0_domain", ''), FILTER_SANITIZE_STRING);
+    $domain = check_plain(variable_get("auth0_domain", ''));
 
     drupal_goto("https://$domain/v2/logout?returnTo=" . urlencode($base_url));
   }
@@ -449,8 +449,8 @@ function template_preprocess_auth0_lock(&$vars) {
   global $base_root; 
 
   $vars['sso_enabled'] = (boolean)variable_get("auth0_sso", FALSE);
-  $vars['domain'] = filter_var(variable_get("auth0_domain", ''), FILTER_SANITIZE_STRING);
-  $vars['client_id'] = filter_var(variable_get("auth0_client_id", ''), FILTER_SANITIZE_STRING);
+  $vars['domain'] = check_plain(variable_get("auth0_domain", ''));
+  $vars['client_id'] = check_plain(variable_get("auth0_client_id", ''));
 
   $vars['params'] = array(
     'callbackURL' => url('auth0/callback', array('absolute' => TRUE, 'query' => drupal_get_destination())),
