@@ -90,14 +90,14 @@ function auth0_verify_email_page() {
     $headers = array('Authorization' => "Bearer $token");
     $result = drupal_http_request($url, array('headers' => $headers, 'method' => 'POST'));
     if ($result->code == 200) {
-      drupal_set_message(t('An Authorization email was sent to your account'));
+      drupal_set_message(t('A verification message with further instructions has been sent to your e-mail address.'));
     }
     else {
-      drupal_set_message(t('Sorry, we couldnt send the email'), 'error');
+      drupal_set_message(t('Sorry, we could not send a verification e-mail. Please try again later.'), 'error');
     }
   }
   catch(Exception$e) {
-    drupal_set_message(t('Sorry, we couldnt send the email'), 'error');
+    drupal_set_message(t('Sorry, we could not send a verification e-mail. Please try again later.'), 'error');
   }
 
   return drupal_goto();
@@ -133,7 +133,7 @@ function auth0_callback() {
     auth0_login_auth0_user($userInfo, $idToken);
   }
   else {
-    drupal_set_message(t('There was a problem logging you in, sorry by the inconvenience.'), 'error');
+    drupal_set_message(t('There was a problem logging you in, sorry for the inconvenience.'), 'error');
   }
 
   return drupal_goto();
@@ -143,7 +143,7 @@ function auth0_callback() {
  * Display a message and cancel login if the user does not have a verified email.
  */
 function auth0_fail_with_verify_email($idToken) {
-  drupal_set_message(t("Please verify your email and log in again. Click <a href=@url>here</a> to Resend verification email.", array('@url' => url('auth0/verify_email', array('query' => array('token' => $idToken))))), 'warning');
+  drupal_set_message(t('Please verify your e-mail address and log in again. <a href="@url">Resend verification e-mail.</a>', array('@url' => url('auth0/verify_email', array('query' => array('token' => $idToken))))), 'warning');
 
   return drupal_goto();
 }
@@ -157,7 +157,7 @@ function auth0_login_auth0_user($userInfo, $idToken) {
   if ($requires_email) {
     if (!isset($userInfo['email']) || empty($userInfo['email'])) {
       return drupal_set_message(
-        t('This account does not have an email associated. Please login with a different provider.'),
+        t('This account does not have an e-mail address associated with it. Please log in with a different provider.'),
         'error'
       );
     }
@@ -355,7 +355,7 @@ function auth0_advanced_form($form, &$form_state) {
     '#type' => 'checkbox',
     '#title' => t('Allow user signup'),
     '#default_value' => variable_get('auth0_allow_signup', TRUE),
-    '#description' => t('If you have database connection you can allow users to signup in the widget.'),
+    '#description' => t('If you have database connection you can allow users to signup using the Auth0 widget.'),
   );
 
   $form['auth0_widget_cdn'] = array(
@@ -367,23 +367,23 @@ function auth0_advanced_form($form, &$form_state) {
 
   $form['auth0_requires_verified_email'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Requires verified email'),
+    '#title' => t('Requires verified e-mail'),
     '#default_value' => variable_get('auth0_requires_verified_email', TRUE),
-    '#description' => t('Mark this if you require the user to have a verified email to login.'),
+    '#description' => t('Require the user to have a verified e-mail address to login.'),
   );
 
   $form['auth0_sso'] = array(
     '#type' => 'checkbox',
     '#title' => t('SSO enabled'),
     '#default_value' => variable_get('auth0_sso', FALSE),
-    '#description' => t('Mark this if you want to enable Auth0 SSO for this site.'),
+    '#description' => t('Enable Auth0 <a href="@url">Single Sign On</a> for this site.', array('@url' => 'https://auth0.com/docs/sso/single-sign-on')),
   );
 
   $form['auth0_login_css'] = array(
     '#type' => 'textarea',
-    '#title' => t('Login widget css'),
+    '#title' => t('Login widget CSS'),
     '#default_value' => variable_get('auth0_login_css', AUTH_LOGIN_CSS),
-    '#description' => t('This css controls how the widget look and feel.'),
+    '#description' => t('This CSS controls the widget look and feel.'),
   );
 
   return system_settings_form($form);
