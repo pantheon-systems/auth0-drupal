@@ -16,7 +16,6 @@ define('AUTH_LOGIN_CSS', "#a0-widget .a0-panel {
     border-color: #f9f9f9;
 }");
 
-
 require_once (DRUPAL_ROOT . '/' . AUTH0_PATH . '/vendor/autoload.php');
 
 use Auth0SDK\Auth0;
@@ -111,16 +110,14 @@ function auth0_verify_email_page() {
  * the user if the parameters are valid.
  */
 function auth0_callback() {
-  global $base_root;
 
   $auth0 = new Auth0(array(
       'domain' => variable_get('auth0_domain', ''),
       'client_id' => variable_get('auth0_client_id', ''),
       'client_secret' => variable_get('auth0_client_secret', ''),
-      'redirect_uri' => "$base_root/auth0/callback",
+      'redirect_uri' => url('auth0/callback', array('absolute' => TRUE)),
       'store' => FALSE,
     ));
-
 
   $userInfo = NULL;
 
@@ -400,12 +397,11 @@ function auth0_advanced_form($form, &$form_state) {
 function auth0_user_logout($account) {
   // If Single Sign On is enabled then log the user out from Auth0.
   if (variable_get("auth0_sso", FALSE)) {
-    global $base_url;
     session_destroy();
 
     $domain = check_plain(variable_get("auth0_domain", ''));
 
-    drupal_goto("https://$domain/v2/logout?returnTo=" . urlencode($base_url));
+    drupal_goto("https://$domain/v2/logout?returnTo=" . urlencode(url('<front>')));
   }
 }
 
@@ -446,7 +442,6 @@ function _auth0_form_replace_with_lock(&$form, $mode = 'signin') {
  * Preprocess the login widget.
  */
 function template_preprocess_auth0_lock(&$vars) {
-  global $base_root; 
 
   $vars['sso_enabled'] = (boolean)variable_get("auth0_sso", FALSE);
   $vars['domain'] = check_plain(variable_get("auth0_domain", ''));
