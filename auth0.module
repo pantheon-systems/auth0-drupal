@@ -119,18 +119,18 @@ function auth0_callback() {
       'store' => FALSE,
     ));
 
-  $userInfo = NULL;
+  $user_info = NULL;
 
   try {
-    $userInfo = $auth0->getUserInfo();
-    $idToken = $auth0->getIdToken();
+    $user_info = $auth0->getUserInfo();
+    $id_token = $auth0->getIdToken();
   }
   catch(Exception$e) {}
 
   // var_dump($auth0); die;
 
-  if ($userInfo) {
-    auth0_login_auth0_user($userInfo, $idToken);
+  if ($user_info) {
+    auth0_login_auth0_user($user_info, $id_token);
   }
   else {
     drupal_set_message(t('There was a problem logging you in, sorry for the inconvenience.'), 'error');
@@ -142,8 +142,8 @@ function auth0_callback() {
 /**
  * Display a message and cancel login if the user does not have a verified email.
  */
-function auth0_fail_with_verify_email($idToken) {
-  drupal_set_message(t('Please verify your e-mail address and log in again. <a href="@url">Resend verification e-mail.</a>', array('@url' => url('auth0/verify_email', array('query' => array('token' => $idToken))))), 'warning');
+function auth0_fail_with_verify_email($id_token) {
+  drupal_set_message(t('Please verify your e-mail address and log in again. <a href="@url">Resend verification e-mail.</a>', array('@url' => url('auth0/verify_email', array('query' => array('token' => $id_token))))), 'warning');
 
   return drupal_goto();
 }
@@ -151,28 +151,28 @@ function auth0_fail_with_verify_email($idToken) {
 /**
  * Log in an Auth0 authenticated user.
  */
-function auth0_login_auth0_user($userInfo, $idToken) {
+function auth0_login_auth0_user($user_info, $id_token) {
   $requires_email = variable_get('auth0_requires_verified_email', TRUE);
 
   if ($requires_email) {
-    if (!isset($userInfo['email']) || empty($userInfo['email'])) {
+    if (!isset($user_info['email']) || empty($user_info['email'])) {
       return drupal_set_message(
         t('This account does not have an e-mail address associated with it. Please log in with a different provider.'),
         'error'
       );
     }
-    if (!$userInfo['email_verified']) {
-      auth0_fail_with_verify_email($idToken);
+    if (!$user_info['email_verified']) {
+      auth0_fail_with_verify_email($id_token);
     }
   }
 
 
   // See if there is a user in the auth0_user table with the user info client id
-  $uid = auth0_find_auth0_user($userInfo['user_id']);
+  $uid = auth0_find_auth0_user($user_info['user_id']);
 
   if ($uid) {
     // The user exists. Update the auth0_user with the new userInfo object.
-    auth0_update_auth0_object($userInfo);
+    auth0_update_auth0_object($user_info);
 
     // Log in the user.
     $form_state['uid'] = $uid;
@@ -182,7 +182,7 @@ function auth0_login_auth0_user($userInfo, $idToken) {
     // If the user doesn't exist we need to either create a new one, or assign 
     // him to an existing one.
     $isDatabaseUser = FALSE;
-    foreach ($userInfo['identities'] as $identity) {
+    foreach ($user_info['identities'] as $identity) {
       if ($identity['provider'] == "auth0") {
         $isDatabaseUser = TRUE;
       }
@@ -191,16 +191,16 @@ function auth0_login_auth0_user($userInfo, $idToken) {
     // If the user has a verified email or is a database user try to see if there is
     // a user to join with. The isDatabase is because we don't want to allow database
     // user creation if there is an existing one with no verified email.
-    if ($userInfo['email_verified'] || $isDatabaseUser) {
-      $joinUser = user_load_by_mail($userInfo['email']);
+    if ($user_info['email_verified'] || $isDatabaseUser) {
+      $joinUser = user_load_by_mail($user_info['email']);
     }
 
     if ($joinUser) {
       // If we are here, we have a potential join user.
       // Don't allow creation or assignation of user if the email is not verified, that would
       // be hijacking.
-      if (!$userInfo['email_verified']) {
-        return auth0_fail_with_verify_email($idToken);
+      if (!$user_info['email_verified']) {
+        return auth0_fail_with_verify_email($id_token);
       }
       $uid = $joinUser->uid;
     }
@@ -211,11 +211,11 @@ function auth0_login_auth0_user($userInfo, $idToken) {
         return drupal_set_message(t('Only site administrators can create new user accounts.'), 'error');
       }
       else {
-        $uid = auth0_create_user_from_auth0($userInfo);
+        $uid = auth0_create_user_from_auth0($user_info);
       }
     }
 
-    auth0_insert_auth0_user($userInfo, $uid);
+    auth0_insert_auth0_user($user_info, $uid);
 
     // Log in the user.
     $form_state['uid'] = $uid;
@@ -243,20 +243,20 @@ function auth0_find_auth0_user($id) {
 /**
  * Save changes to the local cache of an Auth0 user object.
  */
-function auth0_update_auth0_object($userInfo) {
+function auth0_update_auth0_object($user_info) {
   db_update('auth0_user')->fields(array(
-      'auth0_object' => serialize($userInfo),
-    ))->condition('auth0_id', $userInfo['user_id'], '=')->execute();
+      'auth0_object' => serialize($user_info),
+    ))->condition('auth0_id', $user_info['user_id'], '=')->execute();
 }
 
 /**
  * Create a local cached Auth0 user object.
  */
-function auth0_insert_auth0_user($userInfo, $uid) {
+function auth0_insert_auth0_user($user_info, $uid) {
   $auth0_user = array(
-    'auth0_id' => $userInfo['user_id'],
+    'auth0_id' => $user_info['user_id'],
     'drupal_id' => $uid,
-    'auth0_object' => serialize($userInfo),
+    'auth0_object' => serialize($user_info),
   );
 
   drupal_write_record('auth0_user', $auth0_user);
@@ -265,10 +265,10 @@ function auth0_insert_auth0_user($userInfo, $uid) {
 /**
  * Create a new Drupal user for an authenticated Auth0 user.
  */
-function auth0_create_user_from_auth0($userInfo) {
+function auth0_create_user_from_auth0($user_info) {
   $user = new stdClass();
-  if (isset($userInfo['email']) && !empty($userInfo['email'])) {
-    $email = $userInfo['email'];
+  if (isset($user_info['email']) && !empty($user_info['email'])) {
+    $email = $user_info['email'];
   }
   else {
     $email = "change_this_email@" . uniqid() . ".com";
@@ -277,7 +277,7 @@ function auth0_create_user_from_auth0($userInfo) {
   $user->init = $email;
 
   // If the username already exists, create a new random one.
-  $username = $userInfo['nickname'];
+  $username = $user_info['nickname'];
   if (user_load_by_name($username)) {
     $username .= time();
   }
