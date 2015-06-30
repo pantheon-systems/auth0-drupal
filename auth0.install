@@ -34,9 +34,18 @@ function auth0_schema() {
 }
 
 /**
+ * Implements hook_install().
+ */
+function auth0_install() {
+  drupal_install_schema('auth0');
+}
+
+/**
  * Implements hook_uninstall().
  */
 function auth0_uninstall() {
+  drupal_uninstall_schema('auth0');
+
   variable_del('auth0_login_css');
   variable_del('auth0_widget_cdn');
   variable_del('auth0_form_title');

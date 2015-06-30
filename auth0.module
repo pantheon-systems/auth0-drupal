@@ -16,7 +16,7 @@ define('AUTH_LOGIN_CSS', "#a0-widget .a0-panel {
     border-color: #f9f9f9;
 }");
 
-require_once (DRUPAL_ROOT . '/' . AUTH0_PATH . '/vendor/autoload.php');
+require_once ('./' . AUTH0_PATH . '/vendor/autoload.php');
 
 use Auth0SDK\Auth0;
 
@@ -128,7 +128,6 @@ function auth0_callback() {
   catch(Exception$e) {}
 
   // var_dump($auth0); die;
-
   if ($userInfo) {
     auth0_login_auth0_user($userInfo, $idToken);
   }
@@ -192,7 +191,7 @@ function auth0_login_auth0_user($userInfo, $idToken) {
     // a user to join with. The isDatabase is because we don't want to allow database
     // user creation if there is an existing one with no verified email.
     if ($userInfo['email_verified'] || $isDatabaseUser) {
-      $joinUser = user_load_by_mail($userInfo['email']);
+      $joinUser = _auth0_user_load_by_mail($userInfo['email']);
     }
 
     if ($joinUser) {
@@ -207,7 +206,7 @@ function auth0_login_auth0_user($userInfo, $idToken) {
     else {
       // If we are here, we need to create the user.
       // Check drupal settings to see if new users are allowed to register.
-      if (variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL) == USER_REGISTER_ADMINISTRATORS_ONLY) {
+      if (!variable_get('user_register', 1)) {
         return drupal_set_message(t('Only site administrators can create new user accounts.'), 'error');
       }
       else {
@@ -216,10 +215,8 @@ function auth0_login_auth0_user($userInfo, $idToken) {
     }
 
     auth0_insert_auth0_user($userInfo, $uid);
-
     // Log in the user.
-    $form_state['uid'] = $uid;
-    user_login_submit(array(), $form_state);
+    user_external_login(user_load(array('uid' => $uid)));
   }
 }
 
@@ -266,33 +263,32 @@ function auth0_insert_auth0_user($userInfo, $uid) {
  * Create a new Drupal user for an authenticated Auth0 user.
  */
 function auth0_create_user_from_auth0($userInfo) {
-  $user = new stdClass();
   if (isset($userInfo['email']) && !empty($userInfo['email'])) {
     $email = $userInfo['email'];
   }
   else {
     $email = "change_this_email@" . uniqid() . ".com";
   }
-  $user->mail = $email;
-  $user->init = $email;
+  $values = array();
+  $values['mail'] = $email;
+  $values['init'] = $email;
 
   // If the username already exists, create a new random one.
   $username = $userInfo['nickname'];
-  if (user_load_by_name($username)) {
+  if (_auth0_user_load_by_name($username)) {
     $username .= time();
   }
-  $user->name = $username;
-  $user->is_new = TRUE;
-  $user->status = variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL) == USER_REGISTER_VISITORS;
-  $user->pass = user_password();
-  $new_user = user_save($user);
+  $values['name'] = $username;
+  $values['status'] = variable_get('user_register', 1) == 1;
+  $values['pass'] = user_password();
+  $user = user_save('', $values);
 
   // Notify the user if they must have approval.
   if (!$user->status) {
     drupal_set_message(t('Thank you for applying for an account. Your account is currently pending approval by the site administrator.'));
   }
 
-  return $new_user->uid;
+  return $user->uid;
 }
 
 /**
@@ -303,7 +299,7 @@ function auth0_create_user_from_auth0($userInfo) {
 function auth0_theme() {
   return array(
     'auth0_lock' => array(
-      'variables' => array('mode' => 'signin'),
+      'arguments' => array('mode' => 'signin'),
       'template' => 'auth0-lock',
     ),
   );
@@ -312,7 +308,7 @@ function auth0_theme() {
 /**
  * The Auth0 basic configuration settings form callback.
  */
-function auth0_login_form($form, &$form_state) {
+function auth0_login_form(&$form_state) {
   // Text field for the e-mail subject.
   $form['auth0_client_id'] = array(
     '#type' => 'textfield',
@@ -342,7 +338,7 @@ function auth0_login_form($form, &$form_state) {
 /**
  * The Auth0 advanced configuration settings form callback.
  */
-function auth0_advanced_form($form, &$form_state) {
+function auth0_advanced_form(&$form_state) {
   // Text field for the e-mail subject.
   $form['auth0_form_title'] = array(
     '#type' => 'textfield',
@@ -434,7 +430,7 @@ function _auth0_form_replace_with_lock(&$form, $mode = 'signin') {
   // Add an Auth0 Lock widget.
   $form['auth0'] = array(
     '#type' => 'markup',
-    '#markup' => theme('auth0_lock', array('mode' => $mode))
+    '#value' => theme('auth0_lock', $mode)
   );
 }
 
@@ -442,7 +438,6 @@ function _auth0_form_replace_with_lock(&$form, $mode = 'signin') {
  * Preprocess the login widget.
  */
 function template_preprocess_auth0_lock(&$vars) {
-
   $vars['sso_enabled'] = (boolean)variable_get("auth0_sso", FALSE);
   $vars['domain'] = check_plain(variable_get("auth0_domain", ''));
   $vars['client_id'] = check_plain(variable_get("auth0_client_id", ''));
@@ -474,7 +469,10 @@ function template_preprocess_auth0_lock(&$vars) {
   }
 
   // Add the lock.js library from the specified CDN.
-  drupal_add_js(filter_var(variable_get('auth0_widget_cdn', AUTH0_WIDGET_CDN), FILTER_VALIDATE_URL), 'external');
+  // drupal_add_js(filter_var(variable_get('auth0_widget_cdn', AUTH0_WIDGET_CDN), FILTER_VALIDATE_URL), 'external');
+  $script = filter_var(variable_get('auth0_widget_cdn', AUTH0_WIDGET_CDN), FILTER_VALIDATE_URL);
+  drupal_set_html_head('<script src="' . $script . '" type="text/javascript"></script>');
+
 
   // Add the auth0 js settings.
   drupal_add_js(array(
@@ -486,4 +484,18 @@ function template_preprocess_auth0_lock(&$vars) {
 
   // Add the Drupal behavior to initialize the widget.
   drupal_add_js(drupal_get_path('module', 'auth0') . '/auth0.lock.js');
+}
+
+/**
+ * Load the user with the given e-mail address.
+ */
+function _auth0_user_load_by_mail($mail) {
+  return user_load(array('mail' => $mail));
+}
+
+/**
+ * Load the user with the given e-mail address.
+ */
+function _auth0_user_load_by_name($name) {
+  return user_load(array('name' => $mail));
 }
