@@ -494,8 +494,8 @@ function _auth0_user_load_by_mail($mail) {
 }
 
 /**
- * Load the user with the given e-mail address.
+ * Load the user with the given name.
  */
 function _auth0_user_load_by_name($name) {
-  return user_load(array('name' => $mail));
+  return user_load(array('name' => $name));
 }
