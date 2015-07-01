@@ -90,7 +90,12 @@ function auth0_menu() {
  */
 function auth0_user_info_page($user) {
   if ($object = auth0_get_auth0_object_from_drupal_uid($user->uid)) {
-    return '<pre>' . json_encode($object, JSON_PRETTY_PRINT) . '</pre>';
+    if (defined('JSON_PRETTY_PRINT')) {
+      return '<pre>' . json_encode($object, JSON_PRETTY_PRINT) . '</pre>';
+    }
+    else {
+      return '<pre>' . print_r($object, true) . '</pre>';
+    }
   }
   else {
     return t('This user has not authenticated with Auth0');
