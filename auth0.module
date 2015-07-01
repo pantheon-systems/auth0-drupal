@@ -42,6 +42,16 @@ function auth0_menu() {
     'type' => MENU_CALLBACK,
   );
 
+  $items['user/%user/auth0'] = array(
+    'title' => 'Auth0',
+    'description' => 'Verify email action',
+    'page callback' => 'auth0_user_info_page',
+    'page arguments' => array(1),
+    'access arguments' => array('administer users'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 100,
+  );
+
 
   // Add an admin configuration page.
   $items['admin/config/people/auth0'] = array(
@@ -73,6 +83,18 @@ function auth0_menu() {
   );
 
   return $items;
+}
+
+/**
+ * Display auth0 info for the given user.
+ */
+function auth0_user_info_page($user) {
+  if ($object = auth0_get_auth0_object_from_drupal_uid($user->uid)) {
+    return '<pre>' . json_encode($object, JSON_PRETTY_PRINT) . '</pre>';
+  }
+  else {
+    return t('This user has not authenticated with Auth0');
+  }
 }
 
 /**
@@ -239,6 +261,17 @@ function auth0_find_auth0_user($id) {
   $rs = db_select('auth0_user', 'a')->fields('a', array('drupal_id'))->condition('auth0_id', $id, '=')->execute()->fetchAssoc();
   return empty($rs) ? FALSE : $rs['drupal_id'];
 }
+
+/**
+ * Return the uid of the user with the given Auth0 id.
+ */
+function auth0_get_auth0_object_from_drupal_uid($uid) {
+  $rs = db_select('auth0_user', 'a')->fields('a')->condition('drupal_id', $uid, '=')->execute()->fetch();
+  $rs = drupal_unpack($rs, 'auth0_object');
+  unset($rs->auth0_object);
+  return $rs;
+}
+
 
 /**
  * Save changes to the local cache of an Auth0 user object.
