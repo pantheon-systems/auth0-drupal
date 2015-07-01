@@ -352,23 +352,10 @@ function auth0_advanced_form($form, &$form_state) {
   );
 
   $form['auth0_allow_signup'] = array(
-    '#type' => 'radios',
-    '#title' => t('Allow new users to sign up'),
-    '#default_value' => variable_get('auth0_allow_signup', ''),
-    '#options' => array(
-      '' => t('No new user registrations'),
-      'auth0' => t('New user registrations in Auth0'),
-      'drupal' => t('New user registrations in Drupal')
-    ),
-    '' => array(
-      '#description' => t('Remove the registration form altogether. New users may still be created automatically for social or enterprise logins if the <a href="@url">site user settings</a> allow visitors to create accounts.', array('@url' => 'admin/config/people/accounts')),
-    ),
-    'auth0' => array(
-      '#description' => t('If you have database connection in Auth0 you can allow users to signup using the Auth0 widget.'),
-    ),
-    'drupal' => array(
-      '#description' => t('Allow users to register for Drupal accounts. This works best if you have a custom database connection in Auth0 that can authenticate against your Drupal user database.'),
-    )
+    '#type' => 'checkbox',
+    '#title' => t('Allow user signup'),
+    '#default_value' => variable_get('auth0_allow_signup', TRUE),
+    '#description' => t('If you have database connection you can allow users to signup using the Auth0 widget.'),
   );
 
 
@@ -538,7 +525,7 @@ function auth0_enabled($operation = '') {
 
     // See if our settings allow us to override the registration form.
     if ($operation == 'signup' || $operation == 'reset') {
-      $out = variable_get('auth0_allow_signup', '') == 'auth0';
+      $out = (bool)variable_get('auth0_allow_signup', '');
     }
   }
 
