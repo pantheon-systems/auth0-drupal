@@ -183,6 +183,9 @@ function auth0_login_auth0_user($user_info, $id_token) {
   $requires_email = variable_get('auth0_requires_email', TRUE);
   $requires_verified_email = $requires_email && variable_get('user_email_verification', TRUE);
 
+  // Allow other modules to modify the Auth0 user before processing the login.
+  drupal_alter('auth0_user_pre_login', $user_info, $id_token);
+
   // Check that the user account has an e-mail address if one is required.
   if ($requires_email && empty($user_info['email'])) {
     return drupal_set_message(
