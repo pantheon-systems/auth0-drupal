@@ -425,20 +425,20 @@ function auth0_user_logout($account) {
  * Replace the user login forms with the Auth0 login widget.
  */
 function auth0_form_alter(&$form, $form_state, $form_id) {
-  if ($form_id == 'user_login_block' || $form_id == 'user_login') {
+  if ($form_id == 'user_login_block' || $form_id == 'user_login' && auth0_enabled('login')) {
     _auth0_form_replace_with_lock($form, 'signin');
   }
 
   // If Auth0 controls the user database.
-  if (variable_get('auth0_allow_signup', '') == 'auth0') {
-    if ($form_id == 'user_register_form') {
-      _auth0_form_replace_with_lock($form, 'signup');
-    }
-    if ($form_id == 'user_pass') {
-      _auth0_form_replace_with_lock($form, 'reset');
-    }
+  if ($form_id == 'user_register_form' && auth0_enabled('signup')) {
+    _auth0_form_replace_with_lock($form, 'signup');
   }
-  else if (variable_get('auth0_allow_signup', '') == '') {
+  if ($form_id == 'user_pass' && auth0_enabled('reset')) {
+    _auth0_form_replace_with_lock($form, 'reset');
+  }
+  
+  // If the settings say to remove the signup altogether.
+  if (!variable_get('auth0_allow_signup', '')) {
     if ($form_id == 'user_register_form' || $form_id == 'user_pass') {
       // @TODO: Remove the user signup option.
       drupal_goto('user/login');
@@ -483,15 +483,11 @@ function template_preprocess_auth0_lock(&$vars) {
     'rememberLastLogin' => $vars['sso_enabled'],
     'mode' => $vars['mode'],
   );
-  if (variable_get('auth0_allow_signup', '') == 'auth0') {
-    $vars['params']['disableSignupAction'] = FALSE;
-    $vars['params']['disableResetAction'] = FALSE;
+  if (auth0_enabled('signup')) {
+    $vars['params']['disableSignupAction'] = FALSE;    
   }
-  else if (variable_get('auth0_allow_signup', '') == 'drupal') {
-    $vars['params']['disableSignupAction'] = FALSE;
-    $vars['params']['disableResetAction'] = FALSE;
-    $vars['params']['signupLink'] = url('user/register');
-    $vars['params']['resetLink'] = url('user/password');
+  if (auth0_enabled('reset')) {
+    $vars['params']['disableResetAction'] = FALSE;    
   }
 
   // Generate a link to a login form to be displayed as a no-js fallback.
@@ -521,4 +517,33 @@ function template_preprocess_auth0_lock(&$vars) {
 
   // Add the Drupal behavior to initialize the widget.
   drupal_add_js(drupal_get_path('module', 'auth0') . '/auth0.lock.js');
+}
+
+
+/**
+ * Determine if Auth0 is enabled and can be used.
+ */
+function auth0_enabled($operation = '') {
+  $out = FALSE;
+
+  // Check that the module has been configured.
+  if (
+    variable_get("auth0_domain", '') &&
+    variable_get("auth0_client_id", '') &&
+    variable_get('auth0_client_secret', '')
+    ) {
+
+    // Default to on if the module is configured.
+    $out = TRUE;
+
+    // See if our settings allow us to override the registration form.
+    if ($operation == 'signup' || $operation == 'reset') {
+      $out = variable_get('auth0_allow_signup', '') == 'auth0';
+    }
+  }
+
+  // Allow other modules to override the status.
+  drupal_alter('auth0_enabled', $out, $operation);
+
+  return $out;
 }
