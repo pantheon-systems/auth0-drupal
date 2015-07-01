@@ -83,7 +83,7 @@ function auth0_verify_email_page() {
   $secret = variable_get('auth0_client_secret', '');
 
   try {
-    $user = \JWT::decode($token, base64_decode(strtr($secret, '-_', '+/')));
+    $user = \JWT::decode($token, base64_decode(strtr($secret, '-_', '+/')), array('HS256'));
     $userId = $user->sub;
     $domain = variable_get('auth0_domain', '');
     $url = "https://$domain/api/users/$userId/send_verification_email";
@@ -119,17 +119,18 @@ function auth0_callback() {
       'store' => FALSE,
     ));
 
-  $userInfo = NULL;
+  $user_info = NULL;
 
   try {
-    $userInfo = $auth0->getUserInfo();
-    $idToken = $auth0->getIdToken();
+    $user_info = $auth0->getUserInfo();
+    $id_token = $auth0->getIdToken();
   }
   catch(Exception$e) {}
 
   // var_dump($auth0); die;
-  if ($userInfo) {
-    auth0_login_auth0_user($userInfo, $idToken);
+
+  if ($user_info) {
+    auth0_login_auth0_user($user_info, $id_token);
   }
   else {
     drupal_set_message(t('There was a problem logging you in, sorry for the inconvenience.'), 'error');
@@ -141,8 +142,8 @@ function auth0_callback() {
 /**
  * Display a message and cancel login if the user does not have a verified email.
  */
-function auth0_fail_with_verify_email($idToken) {
-  drupal_set_message(t('Please verify your e-mail address and log in again. <a href="@url">Resend verification e-mail.</a>', array('@url' => url('auth0/verify_email', array('query' => array('token' => $idToken))))), 'warning');
+function auth0_fail_with_verify_email($id_token) {
+  drupal_set_message(t('Please verify your e-mail address and log in again. <a href="@url">Resend verification e-mail.</a>', array('@url' => url('auth0/verify_email', array('query' => array('token' => $id_token))))), 'warning');
 
   return drupal_goto();
 }
@@ -150,28 +151,28 @@ function auth0_fail_with_verify_email($idToken) {
 /**
  * Log in an Auth0 authenticated user.
  */
-function auth0_login_auth0_user($userInfo, $idToken) {
+function auth0_login_auth0_user($user_info, $id_token) {
   $requires_email = variable_get('auth0_requires_verified_email', TRUE);
 
   if ($requires_email) {
-    if (!isset($userInfo['email']) || empty($userInfo['email'])) {
+    if (!isset($user_info['email']) || empty($user_info['email'])) {
       return drupal_set_message(
         t('This account does not have an e-mail address associated with it. Please log in with a different provider.'),
         'error'
       );
     }
-    if (!$userInfo['email_verified']) {
-      auth0_fail_with_verify_email($idToken);
+    if (!$user_info['email_verified']) {
+      auth0_fail_with_verify_email($id_token);
     }
   }
 
 
   // See if there is a user in the auth0_user table with the user info client id
-  $uid = auth0_find_auth0_user($userInfo['user_id']);
+  $uid = auth0_find_auth0_user($user_info['user_id']);
 
   if ($uid) {
     // The user exists. Update the auth0_user with the new userInfo object.
-    auth0_update_auth0_object($userInfo);
+    auth0_update_auth0_object($user_info);
 
     // Log in the user.
     $form_state['uid'] = $uid;
@@ -181,7 +182,7 @@ function auth0_login_auth0_user($userInfo, $idToken) {
     // If the user doesn't exist we need to either create a new one, or assign 
     // him to an existing one.
     $isDatabaseUser = FALSE;
-    foreach ($userInfo['identities'] as $identity) {
+    foreach ($user_info['identities'] as $identity) {
       if ($identity['provider'] == "auth0") {
         $isDatabaseUser = TRUE;
       }
@@ -190,16 +191,16 @@ function auth0_login_auth0_user($userInfo, $idToken) {
     // If the user has a verified email or is a database user try to see if there is
     // a user to join with. The isDatabase is because we don't want to allow database
     // user creation if there is an existing one with no verified email.
-    if ($userInfo['email_verified'] || $isDatabaseUser) {
-      $joinUser = _auth0_user_load_by_mail($userInfo['email']);
+    if ($user_info['email_verified'] || $isDatabaseUser) {
+      $joinUser = _auth0_user_load_by_mail($user_info['email']);
     }
 
     if ($joinUser) {
       // If we are here, we have a potential join user.
       // Don't allow creation or assignation of user if the email is not verified, that would
       // be hijacking.
-      if (!$userInfo['email_verified']) {
-        return auth0_fail_with_verify_email($idToken);
+      if (!$user_info['email_verified']) {
+        return auth0_fail_with_verify_email($id_token);
       }
       $uid = $joinUser->uid;
     }
@@ -210,11 +211,12 @@ function auth0_login_auth0_user($userInfo, $idToken) {
         return drupal_set_message(t('Only site administrators can create new user accounts.'), 'error');
       }
       else {
-        $uid = auth0_create_user_from_auth0($userInfo);
+        $uid = auth0_create_user_from_auth0($user_info);
       }
     }
 
-    auth0_insert_auth0_user($userInfo, $uid);
+    auth0_insert_auth0_user($user_info, $uid);
+
     // Log in the user.
     user_external_login(user_load(array('uid' => $uid)));
   }
@@ -240,20 +242,20 @@ function auth0_find_auth0_user($id) {
 /**
  * Save changes to the local cache of an Auth0 user object.
  */
-function auth0_update_auth0_object($userInfo) {
+function auth0_update_auth0_object($user_info) {
   db_update('auth0_user')->fields(array(
-      'auth0_object' => serialize($userInfo),
-    ))->condition('auth0_id', $userInfo['user_id'], '=')->execute();
+      'auth0_object' => serialize($user_info),
+    ))->condition('auth0_id', $user_info['user_id'], '=')->execute();
 }
 
 /**
  * Create a local cached Auth0 user object.
  */
-function auth0_insert_auth0_user($userInfo, $uid) {
+function auth0_insert_auth0_user($user_info, $uid) {
   $auth0_user = array(
-    'auth0_id' => $userInfo['user_id'],
+    'auth0_id' => $user_info['user_id'],
     'drupal_id' => $uid,
-    'auth0_object' => serialize($userInfo),
+    'auth0_object' => serialize($user_info),
   );
 
   drupal_write_record('auth0_user', $auth0_user);
@@ -262,9 +264,9 @@ function auth0_insert_auth0_user($userInfo, $uid) {
 /**
  * Create a new Drupal user for an authenticated Auth0 user.
  */
-function auth0_create_user_from_auth0($userInfo) {
-  if (isset($userInfo['email']) && !empty($userInfo['email'])) {
-    $email = $userInfo['email'];
+function auth0_create_user_from_auth0($user_info) {
+  if (isset($user_info['email']) && !empty($user_info['email'])) {
+    $email = $user_info['email'];
   }
   else {
     $email = "change_this_email@" . uniqid() . ".com";
@@ -274,7 +276,7 @@ function auth0_create_user_from_auth0($userInfo) {
   $values['init'] = $email;
 
   // If the username already exists, create a new random one.
-  $username = $userInfo['nickname'];
+  $username = $user_info['nickname'];
   if (_auth0_user_load_by_name($username)) {
     $username .= time();
   }
@@ -354,6 +356,7 @@ function auth0_advanced_form(&$form_state) {
     '#description' => t('If you have database connection you can allow users to signup using the Auth0 widget.'),
   );
 
+
   $form['auth0_widget_cdn'] = array(
     '#type' => 'textfield',
     '#title' => t('Widget CDN'),
@@ -397,7 +400,7 @@ function auth0_user_logout($account) {
 
     $domain = check_plain(variable_get("auth0_domain", ''));
 
-    drupal_goto("https://$domain/v2/logout?returnTo=" . urlencode(url('<front>')));
+    drupal_goto("https://$domain/v2/logout?returnTo=" . urlencode(url('<front>', array('absolute' => TRUE))));
   }
 }
 
@@ -407,14 +410,24 @@ function auth0_user_logout($account) {
  * Replace the user login forms with the Auth0 login widget.
  */
 function auth0_form_alter(&$form, $form_state, $form_id) {
-  if ($form_id == 'user_login_block' || $form_id == 'user_login') {
+  if ($form_id == 'user_login_block' || $form_id == 'user_login' && auth0_enabled('login')) {
     _auth0_form_replace_with_lock($form, 'signin');
   }
-  else if ($form_id == 'user_register_form') {
+
+  // If Auth0 controls the user database.
+  if ($form_id == 'user_register_form' && auth0_enabled('signup')) {
     _auth0_form_replace_with_lock($form, 'signup');
   }
-  else if ($form_id == 'user_pass') {
+  if ($form_id == 'user_pass' && auth0_enabled('reset')) {
     _auth0_form_replace_with_lock($form, 'reset');
+  }
+  
+  // If the settings say to remove the signup altogether.
+  if (!variable_get('auth0_allow_signup', '')) {
+    if ($form_id == 'user_register_form' || $form_id == 'user_pass') {
+      // @TODO: Remove the user signup option.
+      drupal_goto('user/login');
+    }
   }
 }
 
@@ -447,12 +460,19 @@ function template_preprocess_auth0_lock(&$vars) {
     'authParams' => array(
       'state' => drupal_get_token('auth0_state'),
     ),
-    'disableSignupAction' => !variable_get("auth0_allow_signup", TRUE),
+    'disableSignupAction' => TRUE,
+    'disableResetAction' => TRUE,
     'container' => 'auth0-login-form',
     'sso' => $vars['sso_enabled'],
     'rememberLastLogin' => $vars['sso_enabled'],
     'mode' => $vars['mode'],
   );
+  if (auth0_enabled('signup')) {
+    $vars['params']['disableSignupAction'] = FALSE;    
+  }
+  if (auth0_enabled('reset')) {
+    $vars['params']['disableResetAction'] = FALSE;    
+  }
 
   // Generate a link to a login form to be displayed as a no-js fallback.
   $query = array(
@@ -498,4 +518,32 @@ function _auth0_user_load_by_mail($mail) {
  */
 function _auth0_user_load_by_name($name) {
   return user_load(array('name' => $name));
+}
+
+/**
+ * Determine if Auth0 is enabled and can be used.
+ */
+function auth0_enabled($operation = '') {
+  $out = FALSE;
+
+  // Check that the module has been configured.
+  if (
+    variable_get("auth0_domain", '') &&
+    variable_get("auth0_client_id", '') &&
+    variable_get('auth0_client_secret', '')
+    ) {
+
+    // Default to on if the module is configured.
+    $out = TRUE;
+
+    // See if our settings allow us to override the registration form.
+    if ($operation == 'signup' || $operation == 'reset') {
+      $out = (bool)variable_get('auth0_allow_signup', '');
+    }
+  }
+
+  // Allow other modules to override the status.
+  drupal_alter('auth0_enabled', $out, $operation);
+
+  return $out;
 }
