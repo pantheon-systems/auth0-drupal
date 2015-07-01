@@ -310,7 +310,7 @@ function auth0_create_user_from_auth0($user_info) {
     $email = $user_info['email'];
   }
   else {
-    $email = "change_this_email@" . uniqid() . ".com";
+    $email = "";
   }
   $user->mail = $email;
   $user->init = $email;
