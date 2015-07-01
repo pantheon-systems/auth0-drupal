@@ -83,7 +83,7 @@ function auth0_verify_email_page() {
   $secret = variable_get('auth0_client_secret', '');
 
   try {
-    $user = \JWT::decode($token, base64_decode(strtr($secret, '-_', '+/')));
+    $user = \JWT::decode($token, base64_decode(strtr($secret, '-_', '+/')), array('HS256'));
     $userId = $user->sub;
     $domain = variable_get('auth0_domain', '');
     $url = "https://$domain/api/users/$userId/send_verification_email";
