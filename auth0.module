@@ -37,9 +37,19 @@ function auth0_menu() {
 
   $items['auth0/verify_email'] = array(
     'description' => 'Verify email action',
-    'page callback' => 'verify_email_page',
+    'page callback' => 'auth0_verify_email_page',
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
+  );
+
+  $items['user/%user/auth0'] = array(
+    'title' => 'Auth0',
+    'description' => 'Verify email action',
+    'page callback' => 'auth0_user_info_page',
+    'page arguments' => array(1),
+    'access arguments' => array('administer users'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 100,
   );
 
 
@@ -76,6 +86,23 @@ function auth0_menu() {
 }
 
 /**
+ * Display auth0 info for the given user.
+ */
+function auth0_user_info_page($user) {
+  if ($object = auth0_get_auth0_object_from_drupal_uid($user->uid)) {
+    if (defined('JSON_PRETTY_PRINT')) {
+      return '<pre>' . json_encode($object, JSON_PRETTY_PRINT) . '</pre>';
+    }
+    else {
+      return '<pre>' . print_r($object, true) . '</pre>';
+    }
+  }
+  else {
+    return t('This user has not authenticated with Auth0');
+  }
+}
+
+/**
  * Verify email page callback.
  */
 function auth0_verify_email_page() {
@@ -89,6 +116,7 @@ function auth0_verify_email_page() {
     $url = "https://$domain/api/users/$userId/send_verification_email";
     $headers = array('Authorization' => "Bearer $token");
     $result = drupal_http_request($url, array('headers' => $headers, 'method' => 'POST'));
+
     if ($result->code == 200) {
       drupal_set_message(t('A verification message with further instructions has been sent to your e-mail address.'));
     }
@@ -152,20 +180,20 @@ function auth0_fail_with_verify_email($id_token) {
  * Log in an Auth0 authenticated user.
  */
 function auth0_login_auth0_user($user_info, $id_token) {
-  $requires_email = variable_get('auth0_requires_verified_email', TRUE);
+  $requires_email = variable_get('auth0_requires_email', TRUE);
+  $requires_verified_email = $requires_email && variable_get('user_email_verification', TRUE);
 
-  if ($requires_email) {
-    if (!isset($user_info['email']) || empty($user_info['email'])) {
-      return drupal_set_message(
-        t('This account does not have an e-mail address associated with it. Please log in with a different provider.'),
-        'error'
-      );
-    }
-    if (!$user_info['email_verified']) {
-      auth0_fail_with_verify_email($id_token);
-    }
+  // Check that the user account has an e-mail address if one is required.
+  if ($requires_email && empty($user_info['email'])) {
+    return drupal_set_message(
+      t('This account does not have an e-mail address associated with it. Please log in with a different provider.'),
+      'error'
+    );
   }
-
+  // Check that the user has a verified e-mail address if that is required.
+  if ($requires_verified_email && isset($user_info['email']) && empty($user_info['email_verified'])) {
+    auth0_fail_with_verify_email($id_token);
+  }
 
   // See if there is a user in the auth0_user table with the user info client id
   $uid = auth0_find_auth0_user($user_info['user_id']);
@@ -191,7 +219,7 @@ function auth0_login_auth0_user($user_info, $id_token) {
     // If the user has a verified email or is a database user try to see if there is
     // a user to join with. The isDatabase is because we don't want to allow database
     // user creation if there is an existing one with no verified email.
-    if ($user_info['email_verified'] || $isDatabaseUser) {
+    if (!empty($user_info['email_verified']) || $isDatabaseUser) {
       $joinUser = _auth0_user_load_by_mail($user_info['email']);
     }
 
@@ -199,7 +227,7 @@ function auth0_login_auth0_user($user_info, $id_token) {
       // If we are here, we have a potential join user.
       // Don't allow creation or assignation of user if the email is not verified, that would
       // be hijacking.
-      if (!$user_info['email_verified']) {
+      if (empty($user_info['email_verified'])) {
         return auth0_fail_with_verify_email($id_token);
       }
       $uid = $joinUser->uid;
@@ -240,6 +268,17 @@ function auth0_find_auth0_user($id) {
 }
 
 /**
+ * Return the uid of the user with the given Auth0 id.
+ */
+function auth0_get_auth0_object_from_drupal_uid($uid) {
+  $rs = db_select('auth0_user', 'a')->fields('a')->condition('drupal_id', $uid, '=')->execute()->fetch();
+  $rs = drupal_unpack($rs, 'auth0_object');
+  unset($rs->auth0_object);
+  return $rs;
+}
+
+
+/**
  * Save changes to the local cache of an Auth0 user object.
  */
 function auth0_update_auth0_object($user_info) {
@@ -269,7 +308,7 @@ function auth0_create_user_from_auth0($user_info) {
     $email = $user_info['email'];
   }
   else {
-    $email = "change_this_email@" . uniqid() . ".com";
+    $email = "";
   }
   $values = array();
   $values['mail'] = $email;
@@ -364,11 +403,11 @@ function auth0_advanced_form(&$form_state) {
     '#description' => t('Point this to the latest widget available in the CDN.'),
   );
 
-  $form['auth0_requires_verified_email'] = array(
+  $form['auth0_requires_email'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Requires verified e-mail'),
-    '#default_value' => variable_get('auth0_requires_verified_email', TRUE),
-    '#description' => t('Require the user to have a verified e-mail address to login.'),
+    '#title' => t('Require an e-mail account'),
+    '#default_value' => variable_get('auth0_requires_email', TRUE),
+    '#description' => t('Require the user to have an e-mail address to login.'),
   );
 
   $form['auth0_sso'] = array(
@@ -429,6 +468,38 @@ function auth0_form_alter(&$form, $form_state, $form_id) {
       drupal_goto('user/login');
     }
   }
+}
+
+/**
+ * Implements hook_user_form_user_profile_form_alter().
+ * 
+ * Disable email and password fields for users who have logged in with Auth0.
+ */
+function auth0_form_user_profile_form_alter(&$form, $form_state) {
+  $user = $form_state['user'];
+  if ($object = auth0_get_auth0_object_from_drupal_uid($user->uid)) {
+    // If the user has an Auth0 profile then we simply disable the password/email fields.
+    
+    // If this account was created without an email address hide the field,
+    // otherwise show it but disable it.
+    if ($user->mail) {
+      $form['account']['mail']['#disabled'] = TRUE;
+    }
+    else {
+      $form['account']['mail']['#access'] = FALSE;
+    }
+
+    // Remove the password field.
+    $form['account']['pass']['#access'] = FALSE;
+
+    // If there is no way to edit the mail/pass then we don't need the current pass f
+    if (isset($form['account']['current_pass'])) {
+      $form['account']['current_pass']['#access'] = FALSE;
+    }
+
+    // @TODO: Reenable the password/email editing ability if the connection providor is Auth0
+    // This will require using the API to update the info in Auth0
+  } 
 }
 
 /**
