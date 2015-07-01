@@ -402,7 +402,7 @@ function auth0_user_logout($account) {
 
     $domain = check_plain(variable_get("auth0_domain", ''));
 
-    drupal_goto("https://$domain/v2/logout?returnTo=" . urlencode(url('<front>')));
+    drupal_goto("https://$domain/v2/logout?returnTo=" . urlencode(url('<front>', array('absolute' => TRUE))));
   }
 }
 
