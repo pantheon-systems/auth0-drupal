@@ -207,8 +207,7 @@ function auth0_login_auth0_user($user_info, $id_token) {
     auth0_update_auth0_object($user_info);
 
     // Log in the user.
-    $account = user_load(array('uid' => $uid));
-    return auth0_authenticate_user($account);
+    return auth0_authenticate_user($uid);
   }
   else {
     // If the user doesn't exist we need to either create a new one, or assign 
@@ -250,8 +249,7 @@ function auth0_login_auth0_user($user_info, $id_token) {
     auth0_insert_auth0_user($user_info, $uid);
 
     // Log in the user.
-    $account = user_load(array('uid' => $uid));
-    return auth0_authenticate_user($account);
+    return auth0_authenticate_user($uid);
   }
 
   return FALSE;
@@ -263,7 +261,9 @@ function auth0_login_auth0_user($user_info, $id_token) {
  * We use our own login form because user_external_login loads the login form which
  * we are modifying.
  */
-function auth0_authenticate_user($account) {
+function auth0_authenticate_user($uid) {
+  $account = user_load(array('uid' => $uid));
+
   if (user_is_blocked($account->name) || drupal_is_denied('user', $account->name)) {
     watchdog('Auth0', 'Attempted login by blocked user %name', array('%name' => $user->name));
     return FALSE;
