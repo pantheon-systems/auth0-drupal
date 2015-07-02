@@ -262,17 +262,8 @@ function auth0_login_auth0_user($user_info, $id_token) {
  * we are modifying.
  */
 function auth0_authenticate_user($uid) {
-  $account = user_load(array('uid' => $uid));
-
-  if (user_is_blocked($account->name) || drupal_is_denied('user', $account->name)) {
-    watchdog('Auth0', 'Attempted login by blocked user %name', array('%name' => $user->name));
-    return FALSE;
-  }
-
-  global $user;
-  $user = $account;
-  $values = array('name' => $account->name);
-  user_authenticate_finalize($values);
+  $form_state['uid'] = $uid;
+  user_login_submit(array(), $form_state);
   return TRUE;
 }
 
