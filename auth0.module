@@ -157,10 +157,11 @@ function auth0_callback() {
 
   // var_dump($auth0); die;
 
+  $success = FALSE;
   if ($user_info) {
-    auth0_login_auth0_user($user_info, $id_token);
+    $success =auth0_login_auth0_user($user_info, $id_token);
   }
-  else {
+  if (!$success) {
     drupal_set_message(t('There was a problem logging you in, sorry for the inconvenience.'), 'error');
   }
 
@@ -195,7 +196,7 @@ function auth0_login_auth0_user($user_info, $id_token) {
   }
   // Check that the user has a verified e-mail address if that is required.
   if ($requires_verified_email && isset($user_info['email']) && empty($user_info['email_verified'])) {
-    auth0_fail_with_verify_email($id_token);
+    return auth0_fail_with_verify_email($id_token);
   }
 
   // See if there is a user in the auth0_user table with the user info client id
@@ -206,8 +207,8 @@ function auth0_login_auth0_user($user_info, $id_token) {
     auth0_update_auth0_object($user_info);
 
     // Log in the user.
-    $form_state['uid'] = $uid;
-    user_login_submit(array(), $form_state);
+    $account = user_load(array('uid' => $uid));
+    return auth0_authenticate_user($account);
   }
   else {
     // If the user doesn't exist we need to either create a new one, or assign 
@@ -249,7 +250,38 @@ function auth0_login_auth0_user($user_info, $id_token) {
     auth0_insert_auth0_user($user_info, $uid);
 
     // Log in the user.
-    user_external_login(user_load(array('uid' => $uid)));
+    $account = user_load(array('uid' => $uid));
+    return auth0_authenticate_user($account);
+  }
+
+  return FALSE;
+}
+
+/**
+ * Authenticate the given user.
+ * 
+ * We use our own login form because user_external_login loads the login form which
+ * we are modifying.
+ */
+function auth0_authenticate_user($account) {
+  if (user_is_blocked($account->name) || drupal_is_denied('user', $account->name)) {
+    watchdog('Auth0', 'Attempted login by blocked user %name', array('%name' => $user->name));
+    return FALSE;
+  }
+
+  global $user;
+  $user = $account;
+  $values = array('name' => $account->name);
+  user_authenticate_finalize($values);
+  return TRUE;
+}
+
+/**
+ * Implements hook_user().
+ */
+function auth0_user($op, &$edit, &$account, $category = NULL) {
+  if ($op == 'delete') {
+    return auth0_user_delete($account);
   }
 }
 
@@ -326,6 +358,10 @@ function auth0_create_user_from_auth0($user_info) {
   $values['status'] = variable_get('user_register', 1) == 1;
   $values['pass'] = user_password();
   $user = user_save('', $values);
+
+  if ($user) {
+    watchdog('Auth0', 'Account created for %name', array('%name' => $user->name), WATCHDOG_NOTICE, l(t('edit'), 'user/'. $user->uid .'/edit'));
+  }
 
   // Notify the user if they must have approval.
   if (!$user->status) {
