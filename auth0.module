@@ -479,10 +479,11 @@ function auth0_form_alter(&$form, $form_state, $form_id) {
  * Disable email and password fields for users who have logged in with Auth0.
  */
 function auth0_form_user_profile_form_alter(&$form, $form_state) {
-  $user = $form_state['user'];
+  $user = $form['_account']['#value'];
+
   if ($object = auth0_get_auth0_object_from_drupal_uid($user->uid)) {
     // If the user has an Auth0 profile then we simply disable the password/email fields.
-    
+
     // If this account was created without an email address hide the field,
     // otherwise show it but disable it.
     if ($user->mail) {
