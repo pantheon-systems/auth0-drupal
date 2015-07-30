@@ -2,3 +2,5 @@ name = Auth0
 description = "Provides single sign on for drupal pages"
 core = "7.x"
 php = 5.3
+
+configure = admin/config/people/auth0
