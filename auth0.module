@@ -1,8 +1,5 @@
 <?php
 
-// Create a variable to store the path to this module
-define('AUTH0_PATH', drupal_get_path('module', 'auth0')); 
-
 // Define some module default settings
 define('AUTH0_WIDGET_CDN', 'http://cdn.auth0.com/js/lock-7.min.js');
 define('AUTH_LOGIN_CSS', "#a0-widget .a0-panel {
@@ -15,10 +12,6 @@ define('AUTH_LOGIN_CSS', "#a0-widget .a0-panel {
     background-color: #f6f6f2;
     border-color: #f9f9f9;
 }");
-
-require_once (DRUPAL_ROOT . '/' . AUTH0_PATH . '/vendor/autoload.php');
-
-use Auth0SDK\Auth0;
 
 
 /**
@@ -89,6 +82,9 @@ function auth0_menu() {
  * Display auth0 info for the given user.
  */
 function auth0_user_info_page($user) {
+  if (!auth0_check_dependencies()) {
+    return drupal_goto();
+  }
   if ($object = auth0_get_auth0_object_from_drupal_uid($user->uid)) {
     if (defined('JSON_PRETTY_PRINT')) {
       return '<pre>' . json_encode($object, JSON_PRETTY_PRINT) . '</pre>';
@@ -106,6 +102,10 @@ function auth0_user_info_page($user) {
  * Verify email page callback.
  */
 function auth0_verify_email_page() {
+  if (!auth0_enabled('login')) {
+    return drupal_goto();
+  }
+
   $token = $_REQUEST['token'];
   $secret = variable_get('auth0_client_secret', '');
 
@@ -138,8 +138,11 @@ function auth0_verify_email_page() {
  * the user if the parameters are valid.
  */
 function auth0_callback() {
+  if (!auth0_enabled('login')) {
+    return drupal_goto();
+  }
 
-  $auth0 = new Auth0(array(
+  $auth0 = new \Auth0SDK\Auth0(array(
       'domain' => variable_get('auth0_domain', ''),
       'client_id' => variable_get('auth0_client_id', ''),
       'client_secret' => variable_get('auth0_client_secret', ''),
@@ -159,7 +162,7 @@ function auth0_callback() {
 
   $success = FALSE;
   if ($user_info) {
-    $success =auth0_login_auth0_user($user_info, $id_token);
+    $success = auth0_login_auth0_user($user_info, $id_token);
   }
   if (!$success) {
     drupal_set_message(t('There was a problem logging you in, sorry for the inconvenience.'), 'error');
@@ -381,6 +384,11 @@ function auth0_theme() {
  * The Auth0 basic configuration settings form callback.
  */
 function auth0_login_form($form, &$form_state) {
+  if (!auth0_check_dependencies()) {
+    // Set message.
+    auth0_missing_dependencies_message();
+  }
+
   // Text field for the e-mail subject.
   $form['auth0_client_id'] = array(
     '#type' => 'textfield',
@@ -411,6 +419,11 @@ function auth0_login_form($form, &$form_state) {
  * The Auth0 advanced configuration settings form callback.
  */
 function auth0_advanced_form($form, &$form_state) {
+  if (!auth0_check_dependencies()) {
+    // Set message.
+    auth0_missing_dependencies_message();
+  }
+
   // Text field for the e-mail subject.
   $form['auth0_form_title'] = array(
     '#type' => 'textfield',
@@ -480,7 +493,7 @@ function auth0_user_logout($account) {
  * Replace the user login forms with the Auth0 login widget.
  */
 function auth0_form_alter(&$form, $form_state, $form_id) {
-  if ($form_id == 'user_login_block' || $form_id == 'user_login' && auth0_enabled('login')) {
+  if (($form_id == 'user_login_block' || $form_id == 'user_login') && auth0_enabled('login')) {
     _auth0_form_replace_with_lock($form, 'signin');
   }
 
@@ -611,6 +624,10 @@ function template_preprocess_auth0_lock(&$vars) {
  * Determine if Auth0 is enabled and can be used.
  */
 function auth0_enabled($operation = '') {
+  if (!auth0_check_dependencies()) {
+    return FALSE;
+  }
+
   $out = FALSE;
 
   // Check that the module has been configured.
@@ -633,4 +650,31 @@ function auth0_enabled($operation = '') {
   drupal_alter('auth0_enabled', $out, $operation);
 
   return $out;
+}
+
+/**
+ * Check that the dependencies were autoloaded.
+ */
+function auth0_check_dependencies() {
+  if (class_exists('\Auth0SDK\Auth0')) {
+    return TRUE;
+  }
+  if (file_exists(DRUPAL_ROOT . '/' . drupal_get_path('module', 'auth0') . '/vendor/autoload.php')) {
+    require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'auth0') . '/vendor/autoload.php';
+    return TRUE;
+  }
+  return FALSE;
+}
+
+/**
+ * Set a message explaining how to install the dependencies.
+ */
+function auth0_missing_dependencies_message() {
+  drupal_set_message(
+    t(
+        'Auth0 is not fully installed. See the module\'s INSTALL.txt file for installation instructions.',
+        array('!url' => 'https://www.drupal.org/project/composer_manager')
+    ), 
+    'warning'
+  );
 }

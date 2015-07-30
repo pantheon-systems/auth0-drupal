@@ -1,0 +1,23 @@
+Installing the Auth0 module
+---------------------------
+
+Auth0 requires some additional PHP packages to function. These packages are 
+managed by Composer (https://getcomposer.org/) and must be installed before
+you can use this module. There are 2 ways to install these packages:
+
+1) Directly with Composer
+If you have composer already installed you can run:
+  
+  > composer install
+
+from inside the module directory. Composer will then download and install all
+of the required dependencies.
+
+2) With Composer Manager
+Composer Manager (https://www.drupal.org/project/composer_manager) is a Drupal
+module to help with the management of dependencies accross all installed modules.
+
+Follow the Composer Manager instructions: https://www.drupal.org/node/2405805
+to install Composer Manager and use it to download and install the Auth0 module
+dependencies.
+
